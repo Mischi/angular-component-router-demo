@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <base href="/">
+    <title>angular-component-router demo</title>
+</head>
+<body ng-app="demo">
+    <demo-app></demo-app>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.0-rc.0/angular.min.js"></script>
+    <script src="angular_1_router.js"></script>
+    <script>
+        
+        function defaultCanActivateRouterHook(componentName) {
+            return function() {
+                console.log(`${componentName}: $canActivate called with`, arguments);
+                return true;
+            }
+        }
+        
+        function defaultRouterHooks(ctrlName) {
+            return {
+                $routerOnActivate: (next, prev) => {
+                    console.log(`${ctrlName}: $routerOnActivate called with`, next, prev);
+                },
+                $routerOnDeactivate: (next, prev) => {
+                    console.log(`${ctrlName}: $routerOnDeactivate called with`, next, prev);
+                },              
+                $routerOnReuse: (next, prev) => {
+                    console.log(`${ctrlName}: $routerOnReuse called with`, next, prev);
+                },      
+                $routerCanReuse: (next, prev) => {
+                    console.log(`${ctrlName}: $routerCanReuse called with`, next, prev);
+                    return true;
+                },             
+                $routerCanDeactivate: (next, prev)  => {
+                    console.log(`${ctrlName}: $routerCanDeactivate called with`, next, prev);
+                    return true
+                }
+            }
+        }
+        
+        
+        var demo = angular.module('demo', ['ngComponentRouter']);
+        
+        // needs <base href="/"> and webserver must always return 
+        // index.html for working browser refresh (F5)
+        demo.config($locationProvider => $locationProvider.html5Mode(true));
+        
+        // FROM angular_1_router.js: Because Angular 1 has no notion of a root component, we use an object with unique identity
+        // to represent this. Can be overloaded with a component name
+        demo.value('$routerRootComponent', 'demoApp');
+        
+        demo.component('demoApp', {
+            restrict: 'AE',
+            $routeConfig: [
+                { path: '/about', name: 'About', component: 'demoAbout' },
+                { path: '/list/...', name: 'List', component: 'demoList', useAsDefault: true }
+            ],
+            $canActivate: defaultCanActivateRouterHook('DempAppComponent'),
+            controller: function ($router) {         
+                console.log('DemoAppCtrl: constructor called');
+                
+                /*$router.config([
+                    { path: '/about', name: 'About', component: 'demoAbout' },
+                    { path: '/list/...', name: 'List', component: 'demoList', useAsDefault: true }
+                ]);*/
+            },
+            template: `
+            <h1>Demo App</h1>
+            <ng-outlet></ng-outlet>
+            `
+        });
+        
+        // TODO do we need https://github.com/angular/angular/blob/master/modules/angular1_router/src/ng_route_shim.js
+        // to get $routeParams?     
+        
+        demo.component('demoAbout', {
+            restrict: 'AE',
+            $canActivate: defaultCanActivateRouterHook('DempAboutComponent'),
+            controller: function () {
+                console.log('DemoAboutCtrl: constructor called, this.$routeParams', this.$routeParams);       
+                Object.assign(this, defaultRouterHooks('DemoAboutCtrl'));
+            },
+            template: `About page <a ng-link="['/List']">Home</a>`
+        });
+        
+        demo.component('demoList', {
+            restrict: 'AE',
+            $routeConfig: [
+                { path: '/', name: 'Empty', component: 'demoEmpty', useAsDefault: true },
+                { path: '/details/:id/:label', name: 'Details', component: 'demoDetails' }
+            ],
+            $canActivate: defaultCanActivateRouterHook('DemoListComponent'),
+            controller: function () {
+                console.log('DemoListCtrl: constructor called, this.$routeParams', this.$routeParams);
+                Object.assign(this, defaultRouterHooks('DemoListCtrl'));
+                
+                this.items = [
+                    { id: 1, label: 'Demo item a'},
+                    { id: 2, label: 'Demo item b'},
+                    { id: 3, label: 'Demo item c'},
+                ];
+            },
+            template: `
+            <h2>Demo List</h2>
+            <ul>
+                <li ng-repeat="i in demoList.items">
+                    <a ng-link="['./Details', { id: i.id, label: i.label }]">{{i.label}}<a>
+                </li>
+            </ul>
+            <ng-outlet><ng-outlet>
+            `
+        });
+        
+        demo.component('demoEmpty', {
+            restrict: 'AE',
+            $canActivate: defaultCanActivateRouterHook('DemoEmptyComponent'),
+            controller: function ($scope) {
+                console.log('DemoEmptyCtrl: constructor called, this.$routeParams', this.$routeParams);
+                Object.assign(this, defaultRouterHooks('DemoEmptyCtrl'));
+            },
+            template: `
+            <h2>no item selected</h2>
+            `
+        });
+        
+        demo.component('demoDetails', {
+            restrict: 'AE',
+            $canActivate: defaultCanActivateRouterHook('DemoDetailsComponent'),
+            controller: function ($scope) {
+                console.log('DemoDetailsCtrl: constructor called, this.$routeParams', this.$routeParams);
+                Object.assign(this, defaultRouterHooks('DemoDetailsCtrl'));
+                
+                this.$routerOnActivate = function(next, prev) {
+                    console.log('DemoDetailsCtrl: $routerOnActivate called with', next, prev);
+                    this.id = next.params.id;
+                    this.label = next.params.label;
+                };
+                
+                this.$routerOnReuse = function(next, prev) {
+                    console.log('DemoDetailsCtrl: $routerOnActivate called with', next, prev);
+                    this.id = next.params.id;
+                    this.label = next.params.label;
+                };
+            },
+            template: `
+            <h2>Demo Details</h2>
+            <strong>Id:</strong> {{demoDetails.id}} <br>
+            <strong>Label:</strong> {{demoDetails.label}} <br>
+            <a ng-link="['Empty']">Close</a> |
+            <a ng-link="['/About']">About</a>
+            `
+        });
+    </script>
+</body>
+</html>
